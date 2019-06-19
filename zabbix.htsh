@@ -1,0 +1,218 @@
+<?bash
+current_issues() {
+python - << EOF
+# pip install pyzabbix
+from pyzabbix import ZabbixAPI
+zapi = ZabbixAPI("https://zabbix.example.com/zabbix") ## zabbix url
+zapi.session.verify = False
+zapi.timeout = 5.1
+zapi.login('zuser', 'ZaBBix') ## Username and password
+
+triggers = zapi.trigger.get(only_true=1,
+                            skipDependent=1,
+                            monitored=1,
+                            active=1,
+                            output='extend',
+                            expandDescription=0,
+                            selectHosts=['host'],
+                            )
+# Do another query to find out which issues are Unacknowledged
+unack_triggers = zapi.trigger.get(only_true=1,
+                            skipDependent=1,
+                            monitored=1,
+                            active=1,
+                            output='extend',
+                            expandDescription=0,
+                            selectHosts=['host'],
+                            withLastEventUnacknowledged=1,
+                            )
+unack_trigger_ids = [t['triggerid'] for t in unack_triggers]
+for t in triggers:
+    t['unacknowledged'] = True if t['triggerid'] in unack_trigger_ids \
+        else False
+
+# Print a list containing only "tripped" triggers
+for t in triggers:
+    if int(t['value']) == 1:
+        print("{2};{0};{1};{3}".format(t['hosts'][0]['host'],
+                                     t['description'],t['priority'],
+                                     '(Unack)' if t['unacknowledged'] else '')
+              )
+EOF
+}
+
+check_agent() {
+echo $HTTP_USER_AGENT | grep -q "curl\|wget"
+}
+
+if check_agent; then
+
+count=0
+IFS=$'\\n'
+echo -n "__[$(date +%H:%M)]"
+for i in {1..68};do echo -n "_";done
+echo "[Zabbix]__"
+for issues in $(current_issues|sort -nr);do 
+	
+    priority=$(echo $issues|cut -d';' -f1)
+       unack=$(echo $issues|cut -d';' -f4)
+
+    if [[ $ack == "false" ]];then
+      if [ -z $unack ];then
+	continue
+      fi
+    fi
+    
+    if [[ $info == "false" ]];then
+      if [ $priority -eq 1 ];then
+	unset priority
+      fi
+    fi
+    case "$priority" in
+    "1")
+      echo -en "\e[30;106m"
+      ;;
+    "2")
+      echo -en "\e[30;43m"
+      ;;
+    "3")
+      echo -en "\e[30;43m"
+      ;;
+    "4")
+      echo -en "\e[30;41m"
+      ;;
+    esac
+    if [[ $count -lt 9 ]];then
+	zero=0
+    else 
+	unset zero
+    fi
+    : $(( count++ ))
+      line_space=74
+      line_count=${#issues}
+      if [[ $line_count -gt $line_space ]];then
+        issues="${issues::62}..."
+        lines_new=1
+      else
+        lines_new=$(( $line_space - $line_count))
+      fi
+    echo -n "${zero}${count} $(echo $issues|awk '{print $2" "$3}' FS=';')"
+      while [[ $lines_new -gt 1 ]];do
+         echo -n " "
+         lines_new=$(( $lines_new - 1 ))
+      done
+    if [[ -z $unack ]];then
+      echo -e "(acknowledged)\e[0m"
+    else
+      echo "                     "
+    fi
+if [[ $count -gt 50 ]];then
+  break
+fi
+done
+if [[ "$count" -eq 0 ]];then
+  echo -e "\e[30;42m  OK ...                          \
+                                                     "
+fi
+echo -e "\e[0m"
+echo "[while :;do clear;curl ${SERVER_NAME}/zabbix-monitor;sleep 30;done           # alles    ]"
+echo "[while :;do clear;curl ${SERVER_NAME}/zabbix-monitor?ack=false;sleep 30;done # nur unack]"          
+exit 0
+fi
+?>
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<?bash 
+if [[ ! -z $refresh ]];then
+  echo "<meta http-equiv=\"refresh\" content=\"$refresh\">"
+else
+  echo "<meta http-equiv=\"refresh\" content=\"10\">"
+fi
+?>
+<style>
+html {
+  background-color: #000000; padding: 0px; margin: 0px;
+}
+p {
+  color: black; font-size: 22px; padding: 2px; margin: 2px;
+}
+table {
+  font-family: arial, sans-serif; border-collapse: collapse; position: absolute; top: 0; bottom: 0; left: 0; right: 0; width: 100%;
+}
+td, th {
+  border: 2px solid; text-align: left; padding: 0px; margin: 0px;
+}
+#zabbix {
+    position: absolute; bottom: 0px; right: 0px;
+}
+#party {
+    display: block; position: absolute; margin-left: auto; margin-right: auto; top: 30%; left: 20%;
+}
+</style>
+<link rel="shortcut icon" href="favicon.ico">
+</head>
+<body>
+<table>
+<?bash
+count=0
+IFS=$'\\n'
+for i in $(current_issues|sort -nr);do 
+	
+    priority=$(echo $i|cut -d';' -f1)
+       unack=$(echo $i|cut -d';' -f4)
+
+    if [[ $ack == "false" ]];then
+      if [ -z $unack ];then
+	continue
+      fi
+    fi
+    
+    if [[ $info == "false" ]];then
+      if [ $priority -eq 1 ];then
+	unset priority
+      fi
+    fi
+    case "$priority" in
+    "1")
+      echo -n "  <tr style=\"background-color: #CCEEFF;\"><th>"
+      ;;
+    "2")
+      echo -n "  <tr style=\"background-color: #FFFF00;\"><th>"
+      ;;
+    "3")
+      echo -n "  <tr style=\"background-color: #FFFF00;\"><th>"
+      ;;
+    "4")
+      echo -n "  <tr style=\"background-color: #FF0000;\"><th>"
+      ;;
+    esac
+    if [[ $count -lt 9 ]];then
+	zero=0
+    else 
+	unset zero
+    fi
+    count=$((count + 1))
+    echo -n "<p> &emsp; ${zero}${count} $(echo $i|awk '{print $2" "$3}' FS=';')"
+    if [ -z $unack ];then
+      echo -n " (acknowledged)</p>"
+    else
+      echo -n "</p>"
+    fi
+      echo "</th></tr>"
+done
+if [[ $count -lt 1 ]];then
+  echo "  <tr style=\"background-color: #0BBD1D;\"><th>OK!</th></tr>"
+fi
+echo "</table>"
+#if [[ $count -lt 1 ]];then
+#  echo "<div id=\"party\">"
+#  echo "<img src=\"https://media.giphy.com/media/W8krmZSDxPIfm/giphy.gif\"/ width=\"255%\" height=\"255%\">"
+#  echo "</div>"
+#fi
+?>
+<div id="zabbix">
+  <a href="/zabbix-monitor?ack=false&refresh=20&info=true"><img src="zabbix.png"/></a>
+</div>
+</body>
+</html>
