@@ -2,6 +2,15 @@
 
 Zabbix alert Monitor
 
+## using Webbrowser
+
+![web](https://github.com/tinoschroeter/zabbix_monitor/blob/master/web.png)
+
+## using cli
+
+![cli](https://github.com/tinoschroeter/zabbix_monitor/blob/master/cli.png)
+
+
 ## Install Apache2
 ```shell
 pip install pyzabbix
