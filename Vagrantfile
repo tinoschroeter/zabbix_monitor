@@ -33,8 +33,10 @@ sed -i 's/www-data/vagrant/g' /etc/apache2/envvars
 a2enmod cgid
 service apache2 restart
 
-chmod +x /var/www/html/build
-cd /var/www/html/build
+for build in /var/www/html/build.sh;do
+   chmod +x $build
+  bash $build
+done
 SCRIPT
 
 Vagrant.configure("2") do |config|
